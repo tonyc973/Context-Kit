@@ -46,15 +46,19 @@ Most LLM agents are stateless. Every conversation starts from zero. Context-Kit 
 
 ## The 7 Memory Types
 
-| Store | Purpose | Example |
-|-------|---------|---------|
-| **Episodic** | Specific past interactions & events | *"User asked about async patterns on Tuesday"* |
-| **Semantic** | General facts & knowledge | *"Python was created by Guido van Rossum"* |
-| **Procedural** | Instructions & how-to knowledge | *"When deploying, always run migrations first"* |
-| **Working** | Short-term session context | *"Currently debugging the auth module"* |
-| **Entity** | Info about people, places, things | *"Alice is a backend engineer at Acme Corp"* |
-| **Summary** | Compressed conversation history | *"Previous session covered API design and testing"* |
-| **Buffer** | Sliding window of recent messages | Raw message history for the current conversation |
+Each store has its **own update strategy** — the structure isn't cosmetic, every store behaves differently in a way that matches its cognitive role:
+
+| Store | Purpose | Update Strategy |
+|-------|---------|-----------------|
+| **Episodic** | Specific past events | **Append-only** — history is never rewritten |
+| **Semantic** | General facts & knowledge | **Similarity replacement** — new facts replace near-duplicates |
+| **Procedural** | Rules & how-to knowledge | **Similarity dedup** — merges identical procedures |
+| **Entity** | People, places, things | **Name-based dedup** — "Alice" + "Alice" = one record |
+| **Working** | Short-term session context | **TTL expiry** — entries auto-expire after a time budget |
+| **Summary** | Compressed past conversations | **Append-only** — lossless summary history |
+| **Buffer** | Recent raw messages | **Sliding window** — oldest evicted past max size |
+
+So if you tell the bot *"Alice is a junior engineer"* and later *"Alice got promoted to senior"*, the entity store keeps **one Alice** with the latest info — not two contradictory records. Semantic facts merge across paraphrasing. Working memory doesn't pile up indefinitely. This is how Context-Kit turns a pile of vectors into something that resembles actual cognition.
 
 ---
 

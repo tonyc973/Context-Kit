@@ -271,18 +271,27 @@ def render_chat() -> None:
                 # Auto-extract in the background
                 if st.session_state.auto_extract and st.session_state.extractor:
                     try:
+                        mem = st.session_state.agent.memory
+                        # Snapshot counts before extraction
+                        before = {
+                            name: s.count()
+                            for name, s in mem._stores.items()
+                        }
                         recent = [
                             {"role": "user", "content": prompt},
                             {"role": "assistant", "content": reply},
                         ]
                         result = st.session_state.extractor.extract_and_save(recent)
+                        after = {
+                            name: s.count()
+                            for name, s in mem._stores.items()
+                        }
+                        created = sum(max(0, after[n] - before[n]) for n in after)
+                        updated = result.total - created
                         if result.total > 0:
                             st.caption(
                                 f"✨ Auto-extracted {result.total} memories "
-                                f"({len(result.entities)} entities, "
-                                f"{len(result.facts)} facts, "
-                                f"{len(result.events)} events, "
-                                f"{len(result.procedures)} procedures)"
+                                f"({created} created, {updated} merged/updated)"
                             )
                     except Exception as e:
                         st.caption(f"(Auto-extract skipped: {e})")

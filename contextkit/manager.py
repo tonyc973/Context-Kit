@@ -34,12 +34,32 @@ class MemoryManager:
         )
 
         self.episodic = EpisodicStore(self._client, prefix=collection_prefix)
-        self.semantic = SemanticStore(self._client, prefix=collection_prefix)
-        self.procedural = ProceduralStore(self._client, prefix=collection_prefix)
-        self.working = WorkingStore(self._client, prefix=collection_prefix)
-        self.entity = EntityStore(self._client, prefix=collection_prefix)
+        self.semantic = SemanticStore(
+            self._client,
+            prefix=collection_prefix,
+            similarity_threshold=self.config.semantic_similarity_threshold,
+        )
+        self.procedural = ProceduralStore(
+            self._client,
+            prefix=collection_prefix,
+            similarity_threshold=self.config.procedural_similarity_threshold,
+        )
+        self.working = WorkingStore(
+            self._client,
+            prefix=collection_prefix,
+            default_ttl_seconds=self.config.working_default_ttl_seconds,
+        )
+        self.entity = EntityStore(
+            self._client,
+            prefix=collection_prefix,
+            dedup_enabled=self.config.entity_dedup_enabled,
+        )
         self.summary = SummaryStore(self._client, prefix=collection_prefix)
-        self.buffer = BufferStore(self._client, prefix=collection_prefix)
+        self.buffer = BufferStore(
+            self._client,
+            prefix=collection_prefix,
+            max_size=self.config.buffer_max_size,
+        )
 
         self._stores = {
             "episodic": self.episodic,
