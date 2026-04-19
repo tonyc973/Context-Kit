@@ -5,6 +5,11 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" />
 </p>
 
+<p align="center">
+  <a href="https://github.com/tonyc973/Context-Kit/actions/workflows/test.yml"><img src="https://github.com/tonyc973/Context-Kit/actions/workflows/test.yml/badge.svg" alt="Tests" /></a>
+  <img src="https://img.shields.io/badge/tests-44%20passing-brightgreen" alt="Tests" />
+</p>
+
 # Context-Kit
 
 **Give your AI agents a brain that remembers.**
@@ -72,6 +77,56 @@ agent.memory.save("episodic", "Last session, Alice asked about Python async patt
 reply = agent.chat("Hi! What were we talking about last time?")
 print(reply)
 # → "Hey Alice! Last time we were discussing Python async patterns..."
+```
+
+---
+
+## Auto Memory Extraction
+
+Don't want to manually call `memory.save()`? Let the LLM extract memories for you:
+
+```python
+from contextkit import MemoryExtractor, MemoryManager
+
+memory = MemoryManager()
+extractor = MemoryExtractor(memory)
+
+conversation = [
+    {"role": "user", "content": "Hi, I'm Alice, a data scientist at Acme Corp. I love Python."},
+    {"role": "assistant", "content": "Nice to meet you Alice!"},
+]
+
+result = extractor.extract_and_save(conversation)
+print(f"Saved {result.total} memories")
+print(f"  Entities: {result.entities}")
+print(f"  Facts: {result.facts}")
+# → Entities stored in entity store, facts in semantic, etc.
+```
+
+---
+
+## Observability
+
+See exactly which memories got injected into each chat turn:
+
+```python
+agent.chat("Tell me about Alice", debug=True)
+# ────────────────────────────────────────────────────────
+# QUERY: Tell me about Alice
+# REPLY: Alice is a data scientist at Acme Corp...
+# INPUT TOKENS: 142
+# SUMMARIZED: False
+# TOOL CALLS: 0
+# RETRIEVED MEMORIES:
+#   [entity] (1)
+#     • Alice: data scientist at Acme Corp
+#   [semantic] (1)
+#     • Alice loves Python
+# ────────────────────────────────────────────────────────
+
+# Or access it programmatically
+ctx = agent.last_context
+print(ctx.input_tokens, ctx.retrieved_memories)
 ```
 
 ---

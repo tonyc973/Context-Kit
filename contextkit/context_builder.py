@@ -20,6 +20,7 @@ class ContextBuilder:
         self.memory = memory
         self.config = config or memory.config
         self._encoder = tiktoken.encoding_for_model("gpt-4o")
+        self.last_retrieved: dict[str, list[MemoryRecord]] = {}
 
     def count_tokens(self, text: str) -> int:
         return len(self._encoder.encode(text))
@@ -45,6 +46,7 @@ class ContextBuilder:
 
         # Gather relevant memories from all stores
         results = self.memory.query_all(query, n_results=n_results)
+        self.last_retrieved = {k: v for k, v in results.items() if v}
         for store_name, records in results.items():
             if records:
                 section = self._format_section(store_name, records)

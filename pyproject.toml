@@ -5,9 +5,37 @@ build-backend = "hatchling.build"
 [project]
 name = "contextkit"
 version = "0.1.0"
-description = "Memory-augmented context management for LLM agents"
+description = "Memory-augmented context management for LLM agents — seven specialized memory stores inspired by human cognition."
 readme = "README.md"
 requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "tonyc973", email = "chtony05@gmail.com"},
+]
+keywords = [
+    "llm",
+    "memory",
+    "agents",
+    "rag",
+    "chromadb",
+    "openai",
+    "chatbot",
+    "ai",
+    "context-management",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
     "openai>=1.0",
     "chromadb>=0.4",
@@ -19,6 +47,14 @@ dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21",
 ]
+
+[project.urls]
+Homepage = "https://github.com/tonyc973/Context-Kit"
+Repository = "https://github.com/tonyc973/Context-Kit"
+Issues = "https://github.com/tonyc973/Context-Kit/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["contextkit"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

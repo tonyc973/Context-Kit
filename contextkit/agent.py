@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from typing import Any
 
 from openai import OpenAI
@@ -10,7 +11,42 @@ from openai import OpenAI
 from .config import Config
 from .context_builder import ContextBuilder
 from .manager import MemoryManager
+from .stores import MemoryRecord
 from .tools import TOOL_DEFINITIONS, handle_tool_call
+
+
+@dataclass
+class ChatContext:
+    """Observability record for a single chat turn."""
+
+    query: str = ""
+    reply: str = ""
+    retrieved_memories: dict[str, list[MemoryRecord]] = field(default_factory=dict)
+    input_tokens: int = 0
+    summarized: bool = False
+    tool_calls_made: int = 0
+
+    def pretty(self) -> str:
+        """Human-readable summary of what happened this turn."""
+        lines = [
+            "─" * 60,
+            f"QUERY: {self.query}",
+            f"REPLY: {self.reply[:120]}{'…' if len(self.reply) > 120 else ''}",
+            f"INPUT TOKENS: {self.input_tokens}",
+            f"SUMMARIZED: {self.summarized}",
+            f"TOOL CALLS: {self.tool_calls_made}",
+        ]
+        if self.retrieved_memories:
+            lines.append("RETRIEVED MEMORIES:")
+            for store, records in self.retrieved_memories.items():
+                lines.append(f"  [{store}] ({len(records)})")
+                for r in records:
+                    snippet = r.content[:80].replace("\n", " ")
+                    lines.append(f"    • {snippet}")
+        else:
+            lines.append("RETRIEVED MEMORIES: (none)")
+        lines.append("─" * 60)
+        return "\n".join(lines)
 
 
 class Agent:
@@ -32,9 +68,17 @@ class Agent:
         self.system_prompt = system_prompt
         self._openai = openai_client or OpenAI(api_key=self.config.openai_api_key)
         self._history: list[dict[str, str]] = []
+        self.last_context: ChatContext = ChatContext()
 
-    def chat(self, user_message: str) -> str:
-        """Send a message and get a response, with automatic memory management."""
+    def chat(self, user_message: str, debug: bool = False) -> str:
+        """Send a message and get a response, with automatic memory management.
+
+        Args:
+            user_message: The user's input.
+            debug: If True, print a trace of retrieved memories and token usage.
+        """
+        ctx = ChatContext(query=user_message)
+
         # Store in buffer
         self.memory.add_message("user", user_message)
         self._history.append({"role": "user", "content": user_message})
@@ -42,12 +86,18 @@ class Agent:
         # Check if summarization is needed
         if self.context_builder.needs_summary(self._history):
             self._summarize_history()
+            ctx.summarized = True
 
         # Build context-enriched messages
         messages = self.context_builder.build(
             query=user_message,
             system_prompt=self.system_prompt,
             messages=self._history,
+        )
+        ctx.retrieved_memories = dict(self.context_builder.last_retrieved)
+        ctx.input_tokens = sum(
+            self.context_builder.count_tokens(m.get("content", "") or "")
+            for m in messages
         )
 
         # Call OpenAI with tool support
@@ -61,6 +111,7 @@ class Agent:
 
         # Handle tool calls
         while choice.finish_reason == "tool_calls":
+            ctx.tool_calls_made += len(choice.message.tool_calls or [])
             assistant_msg: dict[str, Any] = {
                 "role": "assistant",
                 "content": choice.message.content or "",
@@ -99,6 +150,13 @@ class Agent:
         reply = choice.message.content or ""
         self.memory.add_message("assistant", reply)
         self._history.append({"role": "assistant", "content": reply})
+
+        ctx.reply = reply
+        self.last_context = ctx
+
+        if debug:
+            print(ctx.pretty())
+
         return reply
 
     def _summarize_history(self) -> None:
@@ -106,7 +164,6 @@ class Agent:
         if len(self._history) < 4:
             return
 
-        # Take all but the last 2 messages to summarize
         to_summarize = self._history[:-2]
         kept = self._history[-2:]
 
