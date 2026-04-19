@@ -21,4 +21,5 @@ env/
 
 # contextkit data
 .contextkit_data/
+.contextkit_demo_data/
 chroma.sqlite3

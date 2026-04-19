@@ -18,6 +18,20 @@ Context-Kit is a memory management library that gives LLM-powered agents persist
 
 ---
 
+## 🎮 Live Demo — Memory Bot
+
+A full Streamlit app showcasing Context-Kit: a chat interface with a live memory inspector, per-turn retrieval trace, auto-extraction, and persistence across sessions.
+
+```bash
+pip install -e ".[demo]"
+export OPENAI_API_KEY="sk-..."
+streamlit run demo/app.py
+```
+
+See [`demo/README.md`](demo/README.md) for details and Streamlit Cloud deployment instructions.
+
+---
+
 ## Why Context-Kit?
 
 Most LLM agents are stateless. Every conversation starts from zero. Context-Kit fixes that.
