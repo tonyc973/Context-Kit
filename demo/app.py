@@ -31,8 +31,8 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-DATA_DIR = Path(".contextkit_demo_data")
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR = Path(__file__).resolve().parent.parent / ".contextkit_demo_data"
+DATA_DIR.mkdir(exist_ok=True, parents=True)
 
 STORE_ICONS = {
     "episodic": "📅",
@@ -68,9 +68,11 @@ def init_state() -> None:
         st.session_state.extractor = None
     if "auto_extract" not in st.session_state:
         st.session_state.auto_extract = True
+    if "use_routing" not in st.session_state:
+        st.session_state.use_routing = True
 
 
-def build_agent(api_key: str, model: str) -> Agent:
+def build_agent(api_key: str, model: str, use_routing: bool) -> Agent:
     """Create an agent that persists memory to the local data directory."""
     config = Config(
         openai_api_key=api_key,
@@ -82,6 +84,7 @@ def build_agent(api_key: str, model: str) -> Agent:
     agent = Agent(
         config=config,
         memory=memory,
+        use_routing=use_routing,
         system_prompt=(
             "You are Memory Bot — a helpful assistant with long-term memory. "
             "Remember facts about the user and their preferences. "
@@ -117,12 +120,19 @@ def render_sidebar() -> None:
             value=st.session_state.auto_extract,
             help="After each turn, use the LLM to automatically extract entities, facts, events, and procedures into the right stores.",
         )
+        st.session_state.use_routing = st.toggle(
+            "Smart query routing",
+            value=st.session_state.use_routing,
+            help="Use a fast LLM to classify each query and only search the relevant memory stores. Cuts token costs and improves precision.",
+        )
 
         if st.button("🔌 Connect", type="primary", use_container_width=True):
             if not api_key:
                 st.error("Please provide an OpenAI API key.")
             else:
-                st.session_state.agent = build_agent(api_key, model)
+                st.session_state.agent = build_agent(
+                    api_key, model, st.session_state.use_routing
+                )
                 st.session_state.extractor = MemoryExtractor(
                     st.session_state.agent.memory,
                     config=st.session_state.agent.config,
@@ -194,6 +204,12 @@ def render_memory_trace(ctx) -> None:
         col1.metric("Input tokens", ctx.input_tokens)
         col2.metric("Summarized?", "Yes" if ctx.summarized else "No")
         col3.metric("Tool calls", ctx.tool_calls_made)
+
+        if ctx.routed_to is not None:
+            routed_icons = " ".join(
+                f"{STORE_ICONS.get(s, '•')} `{s}`" for s in ctx.routed_to
+            )
+            st.markdown(f"**🎯 Routed to:** {routed_icons}")
 
         if not ctx.retrieved_memories:
             st.caption("No memories retrieved for this turn.")

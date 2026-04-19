@@ -11,6 +11,7 @@ from openai import OpenAI
 from .config import Config
 from .context_builder import ContextBuilder
 from .manager import MemoryManager
+from .router import QueryRouter
 from .stores import MemoryRecord
 from .tools import TOOL_DEFINITIONS, handle_tool_call
 
@@ -25,6 +26,7 @@ class ChatContext:
     input_tokens: int = 0
     summarized: bool = False
     tool_calls_made: int = 0
+    routed_to: list[str] | None = None
 
     def pretty(self) -> str:
         """Human-readable summary of what happened this turn."""
@@ -36,6 +38,8 @@ class ChatContext:
             f"SUMMARIZED: {self.summarized}",
             f"TOOL CALLS: {self.tool_calls_made}",
         ]
+        if self.routed_to is not None:
+            lines.append(f"ROUTED TO: {', '.join(self.routed_to)}")
         if self.retrieved_memories:
             lines.append("RETRIEVED MEMORIES:")
             for store, records in self.retrieved_memories.items():
@@ -59,14 +63,22 @@ class Agent:
         system_prompt: str = "You are a helpful assistant with long-term memory.",
         openai_client: OpenAI | None = None,
         chroma_client: Any = None,
+        use_routing: bool = False,
     ) -> None:
         self.config = config or Config()
         self.memory = memory or MemoryManager(
             config=self.config, chroma_client=chroma_client
         )
-        self.context_builder = ContextBuilder(self.memory, self.config)
-        self.system_prompt = system_prompt
         self._openai = openai_client or OpenAI(api_key=self.config.openai_api_key)
+        self.router: QueryRouter | None = None
+        if use_routing:
+            self.router = QueryRouter(
+                config=self.config, openai_client=self._openai
+            )
+        self.context_builder = ContextBuilder(
+            self.memory, self.config, router=self.router
+        )
+        self.system_prompt = system_prompt
         self._history: list[dict[str, str]] = []
         self.last_context: ChatContext = ChatContext()
 
@@ -95,6 +107,7 @@ class Agent:
             messages=self._history,
         )
         ctx.retrieved_memories = dict(self.context_builder.last_retrieved)
+        ctx.routed_to = self.context_builder.last_routed_to
         ctx.input_tokens = sum(
             self.context_builder.count_tokens(m.get("content", "") or "")
             for m in messages

@@ -6,6 +6,7 @@ import tiktoken
 
 from .config import Config
 from .manager import MemoryManager
+from .router import QueryRouter
 from .stores import MemoryRecord
 
 
@@ -16,11 +17,14 @@ class ContextBuilder:
         self,
         memory: MemoryManager,
         config: Config | None = None,
+        router: QueryRouter | None = None,
     ) -> None:
         self.memory = memory
         self.config = config or memory.config
+        self.router = router
         self._encoder = tiktoken.encoding_for_model("gpt-4o")
         self.last_retrieved: dict[str, list[MemoryRecord]] = {}
+        self.last_routed_to: list[str] | None = None
 
     def count_tokens(self, text: str) -> int:
         return len(self._encoder.encode(text))
@@ -44,8 +48,18 @@ class ContextBuilder:
         """Build a list of chat messages enriched with relevant memory context."""
         sections: list[str] = []
 
-        # Gather relevant memories from all stores
-        results = self.memory.query_all(query, n_results=n_results)
+        # Optionally route the query to only the relevant stores
+        target_stores: list[str] | None = None
+        if self.router is not None:
+            target_stores = self.router.route(query)
+            self.last_routed_to = target_stores
+        else:
+            self.last_routed_to = None
+
+        # Gather relevant memories
+        results = self.memory.query_all(
+            query, n_results=n_results, stores=target_stores
+        )
         self.last_retrieved = {k: v for k, v in results.items() if v}
         for store_name, records in results.items():
             if records:

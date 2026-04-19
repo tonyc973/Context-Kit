@@ -69,12 +69,26 @@ class MemoryManager:
         store = self._stores[store_name]
         return store.query(text=text, n_results=n_results)
 
-    def query_all(self, text: str, n_results: int = 3) -> dict[str, list[MemoryRecord]]:
-        """Query every store and return results keyed by store name."""
+    def query_all(
+        self,
+        text: str,
+        n_results: int = 3,
+        stores: list[str] | None = None,
+    ) -> dict[str, list[MemoryRecord]]:
+        """Query memory stores and return results keyed by store name.
+
+        Args:
+            text: The query text.
+            n_results: Max results per store.
+            stores: Optional list of store names to query. If None, query all
+                non-empty stores (default). Used by QueryRouter to do intent-
+                based routing.
+        """
+        targets = stores if stores is not None else list(self._stores.keys())
         return {
-            name: store.query(text=text, n_results=n_results)
-            for name, store in self._stores.items()
-            if store.count() > 0
+            name: self._stores[name].query(text=text, n_results=n_results)
+            for name in targets
+            if name in self._stores and self._stores[name].count() > 0
         }
 
     def add_message(self, role: str, content: str) -> str:

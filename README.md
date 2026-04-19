@@ -119,6 +119,29 @@ print(f"  Facts: {result.facts}")
 
 ---
 
+## Smart Query Routing
+
+Naive RAG queries every memory store for every question — wasting tokens and muddying context. Context-Kit uses a fast LLM (gpt-4o-mini) to classify each query's intent and route it to only the relevant stores:
+
+```python
+from contextkit import Agent
+
+# Enable routing — queries are classified before retrieval
+agent = Agent(use_routing=True)
+
+agent.chat("Who did I mention last week?")
+print(agent.last_context.routed_to)
+# → ["entity", "episodic"]    ← only relevant stores searched
+
+agent.chat("What are my coding principles?")
+print(agent.last_context.routed_to)
+# → ["procedural"]            ← single-store query, minimum noise
+```
+
+Typical savings: **40-60% fewer input tokens** per turn, with better answer precision.
+
+---
+
 ## Observability
 
 See exactly which memories got injected into each chat turn:
